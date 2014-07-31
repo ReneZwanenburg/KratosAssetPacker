@@ -1,0 +1,8 @@
+{
+	"name": "kratosassetpacker",
+	"description": "Creates packfiles from asset directories, for use with the Kratos engine",
+	"copyright": "Copyright © 2014, Rene Zwanenburg",
+	"authors": ["Rene Zwanenburg"],
+	"dependencies": {
+	}
+}
