@@ -35,7 +35,7 @@ void main(string[] args)
 		auto path = relativePath(asset.name, assetPath);
 		auto info = FileInfo(md5Of(path), currentOffset, nextOffset);
 		
-		writefln("%s -> %(%X%), offset: %s, size: %s", path, info.hash[], currentOffset, asset.size);
+		writefln("%(%X%), offset: %.10d, size: %.10d -> %s", info.hash[], currentOffset, asset.size, path);
 		
 		outFile.rawWrite([info]);
 		currentOffset = nextOffset;
