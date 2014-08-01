@@ -43,7 +43,7 @@ void main(string[] args)
 	foreach(asset; assets)
 	{
 		auto nextOffset = currentOffset + asset.size;
-		auto path = relativePath(asset.name, assetPath);
+		auto path = relativePath(asset.name, assetPath).replace("\\", "/");
 		auto info = FileInfo(md5Of(path), currentOffset, nextOffset);
 		
 		writefln("%(%.2X%), offset: %.10d, size: %.10d -> %s", info.hash[], currentOffset, asset.size, path);
