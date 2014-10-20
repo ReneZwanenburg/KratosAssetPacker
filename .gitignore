@@ -38,3 +38,5 @@ Icon
 *.exe
 *.obj
 *.userprefs
+
+.dub
