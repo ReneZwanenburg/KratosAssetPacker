@@ -40,3 +40,4 @@ Icon
 *.userprefs
 
 .dub
+*.dll

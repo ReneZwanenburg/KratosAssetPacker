@@ -25,7 +25,7 @@ void main(string[] args)
 {
 	auto jobFile = readText("AssetPacker.json").parseJsonString();
 
-	auto inputDirectories = jobFile["input"].deserializeJson!(string[]).map!absolutePath;
+	auto inputDirectories = jobFile["input"].deserializeJson!(string[]).map!absolutePath.array;
 	auto outputDirectory = jobFile["output"].get!string.absolutePath;
 
 	assert(inputDirectories.all!isDir);
@@ -33,7 +33,7 @@ void main(string[] args)
 
 	foreach(inputDirectory; inputDirectories.map!DirEntry)
 	{
-		auto outputFileName = buildPath(outputDirectory, inputDirectory.dirName.baseName ~ ".assetpack");
+		auto outputFileName = buildPath(outputDirectory, getPackfileName(inputDirectory));
 
 		if(!needsUpdate(outputFileName, inputDirectory))
 		{
@@ -79,6 +79,8 @@ void main(string[] args)
 
 		writeln(outputFileName, " update successful");
 	}
+
+	writeLoadOrder(outputDirectory, inputDirectories);
 }
 
 bool needsUpdate(string outputFileName, DirEntry inputDirectory)
@@ -111,6 +113,17 @@ bool needsUpdate(string outputFileName, DirEntry inputDirectory)
 	return assetMap.length > 0;
 }
 
+void writeLoadOrder(string outputDirectory, string[] inputDirs)
+{
+	auto json = Json.emptyArray;
+	json ~= Json("./");
+	foreach(inputDir; inputDirs)
+	{
+		json ~= Json(getPackfileName(inputDir));
+	}
+	std.file.write(buildPath(outputDirectory, "LoadOrder.json"), json.toPrettyString());
+}
+
 Hash getAssetHash(DirEntry assetDirectory, DirEntry asset)
 {
 	return md5Of(relativePath(asset, assetDirectory).replace("\\", "/"));
@@ -119,6 +132,11 @@ Hash getAssetHash(DirEntry assetDirectory, DirEntry asset)
 auto getInputFiles(string directory)
 {
 	return directory.dirEntries(SpanMode.depth).filter!(a => a.isFile).array;
+}
+
+string getPackfileName(string inputDirectory)
+{
+	return inputDirectory.dirName.baseName ~ ".assetpack";
 }
 
 enum Alignment = 16;
