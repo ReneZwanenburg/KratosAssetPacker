@@ -116,7 +116,7 @@ bool needsUpdate(string outputFileName, DirEntry inputDirectory)
 void writeLoadOrder(string outputDirectory, string[] inputDirs)
 {
 	auto json = Json.emptyArray;
-	json ~= Json("./");
+	json ~= Json("./assets/");
 	foreach(inputDir; inputDirs)
 	{
 		json ~= Json(getPackfileName(inputDir));
