@@ -7,6 +7,6 @@
 		"VibeCustomMain"
 	],
 	"dependencies": {
-		"vibe-d": "==0.7.20"
+		"vibe-d": "~>0.7.26"
 	}
 }

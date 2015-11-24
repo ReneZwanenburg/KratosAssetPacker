@@ -25,9 +25,14 @@ void main(string[] args)
 {
 	auto jobFile = readText("AssetPacker.json").parseJsonString();
 
-	auto inputDirectories = jobFile["input"].deserializeJson!(string[]).map!absolutePath.array;
+	auto inputDirectories = jobFile["input"].deserializeJson!(string[]).map!absolutePath.filter!exists.array;
 	auto outputDirectory = jobFile["output"].get!string.absolutePath;
 
+	if(!outputDirectory.exists)
+	{
+		mkdir(outputDirectory);
+	}
+	
 	assert(inputDirectories.all!isDir);
 	assert(outputDirectory.isDir);
 
