@@ -48,30 +48,34 @@ void main(string[] args)
 
 		writeln("Updating Asset pack ", outputFileName);
 
-		auto outputFile = File(outputFileName, "w");
+		auto outputFile = File(outputFileName, "wb");
 		auto inputFiles = inputDirectory.getInputFiles();
 		uint numAssets = inputFiles.count().to!uint;
 		outputFile.rawWrite([numAssets]);
 
-		ulong currentOffset = alignOffset(numAssets.sizeof + numAssets * FileInfo.sizeof);
+		ulong currentWriteOffset = numAssets.sizeof + numAssets * FileInfo.sizeof;
+		ulong currentOffset = alignOffset(currentWriteOffset);
 
 		foreach(inputFile; inputFiles)
 		{
 			auto nextOffset = currentOffset + inputFile.size;
 			auto path = relativePath(inputFile.name, inputDirectory).replace("\\", "/");
-			auto info = FileInfo(getAssetHash(inputDirectory, inputFile), currentOffset, currentOffset + inputFile.size);
+			auto info = FileInfo(getAssetHash(inputDirectory, inputFile), currentOffset, nextOffset);
 
 			writefln("%(%.2X%), offset: %.10d, size: %.10d -> %s", info.hash[], currentOffset, inputFile.size, path);
 
 			outputFile.rawWrite([info]);
-			currentOffset = alignOffset(currentOffset + inputFile.size);
+			currentOffset = alignOffset(nextOffset);
 		}
 
 		writeln("Copying assets to pack...");
 		
 		foreach(asset; inputFiles)
 		{
-			foreach(_; 0..requiredPadding(outputFile.tell))
+			auto padBytes = requiredPadding(currentWriteOffset);
+			currentWriteOffset += padBytes;
+			
+			foreach(_; 0..padBytes)
 			{
 				outputFile.rawWrite([cast(ubyte)0]);
 			}
@@ -79,6 +83,7 @@ void main(string[] args)
 			foreach(chunk; File(asset.name).byChunk(128 * 1024))
 			{
 				outputFile.rawWrite(chunk);
+				currentWriteOffset += chunk.length;
 			}
 		}
 
