@@ -12,11 +12,8 @@ import std.typecons;
 
 import vibe.data.json;
 
-alias Hash = ubyte[digestLength!MD5];
-
 struct FileInfo
 {
-	Hash	hash;
 	ulong	startOffset;
 	ulong	endOffset;
 }
@@ -50,23 +47,31 @@ void main(string[] args)
 
 		auto outputFile = File(outputFileName, "wb");
 		auto inputFiles = inputDirectory.getInputFiles();
-		uint numAssets = inputFiles.count().to!uint;
+		uint numAssets = inputFiles.count().to!uint + 1; // Add one for filename string table
 		outputFile.rawWrite([numAssets]);
 
 		ulong currentWriteOffset = numAssets.sizeof + numAssets * FileInfo.sizeof;
 		ulong currentOffset = alignOffset(currentWriteOffset);
+		
+		string[] nameTable;
+		ulong totalNamesLength;
 
 		foreach(inputFile; inputFiles)
 		{
 			auto nextOffset = currentOffset + inputFile.size;
 			auto path = relativePath(inputFile.name, inputDirectory).replace("\\", "/");
-			auto info = FileInfo(getAssetHash(inputDirectory, inputFile), currentOffset, nextOffset);
-
-			writefln("%(%.2X%), offset: %.10d, size: %.10d -> %s", info.hash[], currentOffset, inputFile.size, path);
+			auto info = FileInfo(currentOffset, nextOffset);
+			auto name = getAssetName(inputDirectory, inputFile);
+			
+			writefln("Offset: %.10d, size: %.10d -> %s", currentOffset, inputFile.size, name);
 
 			outputFile.rawWrite([info]);
 			currentOffset = alignOffset(nextOffset);
+			nameTable ~= name;
+			totalNamesLength += name.length;
 		}
+		
+		outputFile.rawWrite([FileInfo(currentOffset, currentOffset + totalNamesLength + (nameTable.length ? nameTable.length - 1 : 0))]);
 
 		writeln("Copying assets to pack...");
 		
@@ -86,6 +91,10 @@ void main(string[] args)
 				currentWriteOffset += chunk.length;
 			}
 		}
+		
+		auto padBytes = requiredPadding(currentWriteOffset);
+		foreach(_; 0..padBytes) outputFile.rawWrite([cast(ubyte)0]);
+		outputFile.rawWrite(nameTable.join('\0'));
 
 		writeln(outputFileName, " update successful");
 	}
@@ -102,22 +111,25 @@ bool needsUpdate(string outputFileName, DirEntry inputDirectory)
 	auto assetDescriptions = cast(FileInfo[])outputFile[4 .. 4 + numAssets*FileInfo.sizeof];
 	auto inputFiles = inputDirectory.getInputFiles();
 
-	if(numAssets != inputFiles.count()) return true;
+	 // Subtract one for filename string table
+	if(numAssets - 1 != inputFiles.count()) return true;
 	if(inputFiles.any!(a => a.timeLastModified > outputFileName.timeLastModified)) return true;
 
-	int[Hash] assetMap;
-	foreach(existingAsset; assetDescriptions)
+	bool[string] assetMap;
+	auto nameTableInfo = assetDescriptions[$-1];
+	
+	foreach(existingAsset; (cast(string)outputFile[nameTableInfo.startOffset .. nameTableInfo.endOffset]).splitter('\0'))
 	{
-		assetMap[existingAsset.hash] = 0;
+		assetMap[existingAsset] = true;
 	}
 
 	foreach(inputFile; inputFiles)
 	{
-		auto hash = getAssetHash(inputDirectory, inputFile);
-		auto entry = hash in assetMap;
+		auto name = getAssetName(inputDirectory, inputFile);
+		auto entry = name in assetMap;
 
 		if(entry is null) return true;
-		else assetMap.remove(hash);
+		else assetMap.remove(name);
 	}
 
 	return assetMap.length > 0;
@@ -134,9 +146,9 @@ void writeLoadOrder(string outputDirectory, string[] inputDirs)
 	std.file.write(buildPath(outputDirectory, "LoadOrder.json"), json.toPrettyString());
 }
 
-Hash getAssetHash(DirEntry assetDirectory, DirEntry asset)
+string getAssetName(DirEntry assetDirectory, DirEntry asset)
 {
-	return md5Of(relativePath(asset, assetDirectory).replace("\\", "/"));
+	return relativePath(asset, assetDirectory).replace("\\", "/");
 }
 
 auto getInputFiles(string directory)
